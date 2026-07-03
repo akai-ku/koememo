@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#17352E">
+<title>声メモ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Shippori+Mincho:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F3F5F2;
+    --ink: #22302B;
+    --ink-soft: #5E6E67;
+    --pine: #1F5B4E;
+    --pine-deep: #17352E;
+    --live: #B3402A;
+    --card: #FFFFFF;
+    --line: #DDE4DF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Zen Kaku Gothic New", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 18px 20px 10px;
+  }
+  header h1 {
+    font-family: "Shippori Mincho", serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--pine-deep);
+  }
+  header .count {
+    font-size: 12px;
+    color: var(--ink-soft);
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- 録音エリア ---- */
+  .capture {
+    padding: 8px 20px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .rec-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  #recBtn {
+    flex: none;
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    border: none;
+    background: var(--pine);
+    color: #fff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-indent: 0.2em;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.25s;
+  }
+  #recBtn:focus-visible { outline: 3px solid var(--live); outline-offset: 4px; }
+  #recBtn.live { background: var(--live); }
+  #recBtn.live::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid var(--live);
+    animation: pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { transform: scale(1);    opacity: 0.8; }
+    100% { transform: scale(1.25); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #recBtn.live::before { animation: none; opacity: 0.5; }
+  }
+  .status {
+    flex: 1;
+    min-height: 72px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+  }
+  .status .interim { color: var(--ink); }
+  .status .hint { font-size: 12px; }
+
+  /* ---- メモ一覧 ---- */
+  .toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 20px 0;
+  }
+  .toolbar button {
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--pine-deep);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .toolbar button:active { background: var(--line); }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 20px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .memo {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .memo .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .memo time {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+  }
+  .memo .actions { display: flex; gap: 4px; }
+  .memo .actions button {
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+  .memo .actions button:active { background: var(--bg); }
+  .memo p {
+    font-size: 15px;
+    line-height: 1.8;
+    word-break: break-word;
+  }
+  .empty {
+    margin-top: 48px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 2;
+  }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--pine-deep);
+    color: #fff;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    padding: 8px 18px;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>声メモ</h1>
+  <span class="count" id="count"></span>
+</header>
+
+<section class="capture">
+  <div class="rec-row">
+    <button id="recBtn" aria-pressed="false">録音</button>
+    <div class="status" id="status">
+      <span class="hint">ボタンを押して話す。もう一度押すと保存。</span>
+    </div>
+  </div>
+</section>
+
+<div class="toolbar">
+  <button id="copyAll">すべてコピー</button>
+  <button id="clearAll">全削除</button>
+</div>
+
+<main id="list"></main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- 保存(ローカル保存が使えない環境ではメモリ保持) ----------
+  var KEY = "koememo.items.v1";
+  function loadItems() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return memoryItems; }
+  }
+  function saveItems(items) {
+    try { localStorage.setItem(KEY, JSON.stringify(items)); }
+    catch (e) { memoryItems = items; }
+  }
+  var memoryItems = [];
+  var items = loadItems();
+
+  // ---------- 要素 ----------
+  var recBtn = document.getElementById("recBtn");
+  var statusEl = document.getElementById("status");
+  var listEl = document.getElementById("list");
+  var countEl = document.getElementById("count");
+  var toastEl = document.getElementById("toast");
+
+  // ---------- 音声認識 ----------
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  var recording = false;      // ユーザーの意図としての録音状態
+  var finalText = "";         // 確定済みテキストの蓄積
+  var wakeLock = null;
+
+  if (!SR) {
+    statusEl.innerHTML = '<span class="hint">この環境では音声認識が使えません。Android の Chrome で開いてください。</span>';
+    recBtn.disabled = true;
+    recBtn.style.opacity = "0.4";
+  }
+
+  function buildRecognition() {
+    var r = new SR();
+    r.lang = "ja-JP";
+    r.continuous = true;
+    r.interimResults = true;
+
+    r.onresult = function (ev) {
+      var interim = "";
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        var t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) { finalText += t; }
+        else { interim += t; }
+      }
+      renderStatus(interim);
+    };
+
+    // Android は無音で勝手に止まるため、録音中なら自動再開する
+    r.onend = function () {
+      if (recording) {
+        try { r.start(); } catch (e) { /* 連続startの競合は無視 */ }
+      }
+    };
+
+    r.onerror = function (ev) {
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+        recording = false;
+        setLiveUI(false);
+        statusEl.innerHTML = '<span class="hint">マイクの権限がありません。Chrome の設定でマイクを許可してください。</span>';
+      }
+      // "no-speech" などは onend の自動再開に任せる
+    };
+    return r;
+  }
+
+  function renderStatus(interim) {
+    var html = "";
+    if (finalText) html += "<span>" + escapeHtml(finalText) + "</span>";
+    if (interim) html += '<span class="interim">' + escapeHtml(interim) + "</span>";
+    if (!html) html = '<span class="hint">聞き取り中…</span>';
+    statusEl.innerHTML = html;
+  }
+
+  function setLiveUI(live) {
+    recBtn.classList.toggle("live", live);
+    recBtn.textContent = live ? "保存" : "録音";
+    recBtn.setAttribute("aria-pressed", String(live));
+  }
+
+  async function acquireWakeLock() {
+    try {
+      if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+    } catch (e) { /* 未対応でも問題なし */ }
+  }
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release().catch(function(){}); wakeLock = null; }
+  }
+
+  function startRecording() {
+    finalText = "";
+    recognition = buildRecognition();
+    try { recognition.start(); } catch (e) { return; }
+    recording = true;
+    setLiveUI(true);
+    renderStatus("");
+    acquireWakeLock();
+  }
+
+  function stopAndSave() {
+    recording = false;
+    if (recognition) { try { recognition.stop(); } catch (e) {} }
+    releaseWakeLock();
+    setLiveUI(false);
+
+    // stop直後に最後の確定結果が届くことがあるため、少し待ってから保存
+    setTimeout(function () {
+      var text = finalText.trim();
+      if (text) {
+        items.unshift({ ts: Date.now(), text: text });
+        saveItems(items);
+        renderList();
+        showToast("保存しました");
+      } else {
+        showToast("聞き取れませんでした");
+      }
+      finalText = "";
+      statusEl.innerHTML = '<span class="hint">ボタンを押して話す。もう一度押すと保存。</span>';
+    }, 400);
+  }
+
+  recBtn.addEventListener("click", function () {
+    if (!SR) return;
+    if (recording) stopAndSave();
+    else startRecording();
+  });
+
+  // ---------- 一覧 ----------
+  function fmt(ts) {
+    var d = new Date(ts);
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    return d.getFullYear() + "/" + pad(d.getMonth() + 1) + "/" + pad(d.getDate())
+      + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function renderList() {
+    countEl.textContent = items.length ? items.length + " 件" : "";
+    if (!items.length) {
+      listEl.innerHTML = '<div class="empty">まだメモはありません。<br>思いついたら、録音ボタンへ。</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(function (it, i) {
+      return '<article class="memo">'
+        + '<div class="meta"><time>' + fmt(it.ts) + "</time>"
+        + '<div class="actions">'
+        + '<button data-copy="' + i + '">コピー</button>'
+        + '<button data-del="' + i + '">削除</button>'
+        + "</div></div>"
+        + "<p>" + escapeHtml(it.text) + "</p>"
+        + "</article>";
+    }).join("");
+  }
+
+  listEl.addEventListener("click", function (ev) {
+    var t = ev.target;
+    if (t.dataset.copy !== undefined) {
+      copyText(items[+t.dataset.copy].text, "コピーしました");
+    } else if (t.dataset.del !== undefined) {
+      items.splice(+t.dataset.del, 1);
+      saveItems(items);
+      renderList();
+    }
+  });
+
+  document.getElementById("copyAll").addEventListener("click", function () {
+    if (!items.length) return;
+    var all = items.slice().reverse().map(function (it) {
+      return "[" + fmt(it.ts) + "]\n" + it.text;
+    }).join("\n\n");
+    copyText(all, "全件コピーしました");
+  });
+
+  document.getElementById("clearAll").addEventListener("click", function () {
+    if (!items.length) return;
+    if (confirm("すべてのメモを削除します。よろしいですか?")) {
+      items = [];
+      saveItems(items);
+      renderList();
+    }
+  });
+
+  function copyText(text, msg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { showToast(msg); },
+        function () { fallbackCopy(text, msg); });
+    } else { fallbackCopy(text, msg); }
+  }
+  function fallbackCopy(text, msg) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); showToast(msg); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  var toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1800);
+  }
+
+  renderList();
+})();
+</script>
+</body>
+</html>
