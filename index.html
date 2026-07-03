@@ -247,7 +247,10 @@
   var recognition = null;
   var recording = false;      // ユーザーの意図としての録音状態
   var finalText = "";         // 確定済みテキストの蓄積
+  var lastFinalSegment = "";  // 直前に確定した1セグメント(重複判定用)
   var wakeLock = null;
+  var restartTimer = null;    // 再起動の連投を防ぐタイマー
+  var RESTART_DELAY = 450;    // Android の音声バッファ残留を逃がすための待機(ms)
 
   if (!SR) {
     statusEl.innerHTML = '<span class="hint">この環境では音声認識が使えません。Android の Chrome で開いてください。</span>';
@@ -265,17 +268,31 @@
       var interim = "";
       for (var i = ev.resultIndex; i < ev.results.length; i++) {
         var t = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) { finalText += t; }
-        else { interim += t; }
+        if (ev.results[i].isFinal) {
+          var norm = t.trim();
+          // Android は再起動直後に直前発話の残響を再認識することがあるため、
+          // 直前と全く同じセグメントが続いた場合は捨てる
+          if (norm && norm !== lastFinalSegment) {
+            finalText += t;
+            lastFinalSegment = norm;
+          }
+        } else {
+          interim += t;
+        }
       }
       renderStatus(interim);
     };
 
-    // Android は無音で勝手に止まるため、録音中なら自動再開する
+    // Android は無音で勝手に止まるため、録音中なら少し間を置いて自動再開する。
+    // 間を置かずに即再開すると、マイクの音声バッファが残ったまま次のセッションに
+    // 引き継がれ、直前の発話が繰り返し認識されてしまうことがあるため。
     r.onend = function () {
-      if (recording) {
+      if (!recording) return;
+      clearTimeout(restartTimer);
+      restartTimer = setTimeout(function () {
+        if (!recording) return;
         try { r.start(); } catch (e) { /* 連続startの競合は無視 */ }
-      }
+      }, RESTART_DELAY);
     };
 
     r.onerror = function (ev) {
@@ -314,6 +331,7 @@
 
   function startRecording() {
     finalText = "";
+    lastFinalSegment = "";
     recognition = buildRecognition();
     try { recognition.start(); } catch (e) { return; }
     recording = true;
@@ -324,6 +342,7 @@
 
   function stopAndSave() {
     recording = false;
+    clearTimeout(restartTimer);
     if (recognition) { try { recognition.stop(); } catch (e) {} }
     releaseWakeLock();
     setLiveUI(false);
